@@ -85,7 +85,61 @@ exports.CreateTask= async (req, res, next) => {
 };
 
 exports.GetTaskbyState= async (req, res, next) => {
+  const { username, password, task_state, task_app_acronym } = req.body;
+
+  //PS300: Check missing Mandatory fields
+  if(!username || !password || !task_state || !task_app_acronym){
+    return res.json({code:"PS300"})
+  }
+
+  //PS301: Check invalid data type
+  if (typeof username !== "string" || typeof password !== "string" || typeof task_state !== "string" || typeof task_app_acronym !== "string") {
+    return res.json({code:"PS301"})
+  }
+  
   try{
+    //Get user data
+    const getUser = await pool.promise().query(`SELECT * FROM accounts WHERE username = ?`, [username]);
+    const user = getUser[0][0];
+    
+    
+    //A400: Check invalid user credentials
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.json({code:"A400"})
+    }
+    
+    //A401: Check if user active
+    if (user.isActive === 0) {
+      return res.json({code:"A401"})
+    }
+    
+    
+    //D500: Check app does not exist
+    let getApp = await pool.promise().query(`SELECT * FROM application WHERE app_acronym = ?`, [task_app_acronym]);
+    let app = getApp[0][0];
+    if(!app){
+      return res.json({code:"D500"})
+    }
+
+    //D501: Check if any task exist @TOCHECK if GetTaskbyState means all task within single app or all task in all app
+    let getTask = await pool.promise().query(`SELECT * FROM task WHERE Task_app_acronym = ?`, [task_app_acronym]);
+    let checkTask = getTask[0][0];
+    if(!checkTask){
+      return res.json({code:"D501"})
+    }
+    
+    //Check for valid task state @TOCHECK: should state have capital
+    if(task_state !== "open" && task_state !== "todo" && task_state !== "doing" && task_state !== "done" && task_state !== "closed"){
+      return res.json({code:"D502"}) //check if task state correct  
+    }
+    
+    //AM600: Check permitted user
+
+    //Get task data
+    const result = await pool.promise().query(`SELECT * FROM task WHERE Task_state = ? AND Task_app_acronym = ?`, [task_state, task_app_acronym])
+    const task = result[0]
+    //console.log(result)
+    return res.json({code:"S100", data: task})
 
   } catch (e) {
     //Check if data exceed character limit
@@ -100,8 +154,62 @@ exports.GetTaskbyState= async (req, res, next) => {
 };
 
 exports.PromoteTask2Done= async (req, res, next) => {
-  let 
+  const { username, password, task_id, task_app_acronym } = req.body
+  let {task_notes=null} = req.body
+
+  //PS300: Check missing Mandatory fields
+  if(!username || !password || !task_id || !task_app_acronym){
+    return res.json({code:"PS300"})
+  }
+  
+  //PS301: Check invalid data type
+  if (typeof username !== "string" || typeof password !== "string" || typeof task_id !== "string" || typeof task_app_acronym !== "string") {
+    return res.json({code:"PS301"})
+  }
+
   try{
+    //Get user data
+    const getUser = await pool.promise().query(`SELECT * FROM accounts WHERE username = ?`, [username]);
+    const user = getUser[0][0];
+    
+    
+    //A400: Check invalid user credentials
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.json({code:"A400"})
+    }
+    
+    //A401: Check if user active
+    if (user.isActive === 0) {
+      return res.json({code:"A401"})
+    }
+    
+    
+    //D500: Check app does not exist
+    let getApp = await pool.promise().query(`SELECT * FROM application WHERE app_acronym = ?`, [task_app_acronym]);
+    let app = getApp[0][0];
+    if(!app){
+      return res.json({code:"D500"})
+    }
+
+    //get task data
+    let getTask = await pool.promise().query(`SELECT * FROM task WHERE Task_id = ? `, [task_id]);
+    const task =getTask[0][0]
+    //D501: Check if task exist
+    if(!task){
+      return res.json({code:"D501"})
+    }
+
+    //Check task state if in doing
+    if(task.Task_state !== "doing"){
+      return res.json({code:"D502"})
+    } 
+
+    //Check permitted user
+    if(!app.App_permit_Doing || !Checkgroup(username, app.App_permit_Doing)){
+      return res.json({code:"AM600"})
+    }
+
+    //@TODO: Promote code and nodemailer code here
 
   } catch (e) {
     //Check if data exceed character limit
