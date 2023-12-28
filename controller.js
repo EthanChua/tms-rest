@@ -132,10 +132,7 @@ exports.GetTaskbyState= async (req, res, next) => {
       return res.json({code:"D501"})
     }
 
-    //Check for valid task state @TOCHECK: should state have capital
-    // if(task_state !== "open" && task_state !== "todo" && task_state !== "doing" && task_state !== "done" && task_state !== "closed"){
-    //   return res.json({code:"D502"}) //check if task state correct  
-    // }
+    //Check for valid task state input and convert to DB format
     let taskState
     switch (task_state) {
       case "open":
@@ -160,7 +157,7 @@ exports.GetTaskbyState= async (req, res, next) => {
     //Get task data
     const result = await pool.promise().query(`SELECT * FROM task WHERE Task_state = ? AND Task_app_acronym = ?`, [task_state, task_app_acronym])
     const task = result[0]
-    //console.log(result)
+
     return res.json({code:"S100", data: task})
 
   } catch (e) {
@@ -244,7 +241,7 @@ exports.PromoteTask2Done= async (req, res, next) => {
       }
       const updateTaskNotes = await pool.promise().query(`UPDATE task SET Task_notes = CONCAT(?, Task_notes) WHERE Task_id = ?`, [auditNote, task_id])
       //S100: Success
-      sendEmail = false;
+      sendEmail = true;
           //Send email to project lead
       if(sendEmail){
         let transporter = nodemailer.createTransport({
