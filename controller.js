@@ -155,7 +155,7 @@ exports.GetTaskbyState= async (req, res, next) => {
 
 exports.PromoteTask2Done= async (req, res, next) => {
   const { username, password, task_id, task_app_acronym } = req.body
-  let {task_notes=null} = req.body
+  let {new_notes=null} = req.body
 
   //PS300: Check missing Mandatory fields
   if(!username || !password || !task_id || !task_app_acronym){
@@ -171,6 +171,7 @@ exports.PromoteTask2Done= async (req, res, next) => {
     //Get user data
     const getUser = await pool.promise().query(`SELECT * FROM accounts WHERE username = ?`, [username]);
     const user = getUser[0][0];
+    let sendEmail = false;
     
     
     //A400: Check invalid user credentials
@@ -209,8 +210,48 @@ exports.PromoteTask2Done= async (req, res, next) => {
       return res.json({code:"AM600"})
     }
 
-    //@TODO: Promote code and nodemailer code here
+    let task_owner= username, currentDate = new Date() 
+    let dateTime= `Date: ${currentDate.getDate()}-${(currentDate.getMonth() + 1)}-${currentDate.getFullYear()} Time:${currentDate.getHours()}:${currentDate.getMinutes()}`
+    //Promote task to done
+    const promoteTaskResult = await pool.promise().query(`UPDATE task SET Task_state = ?, task_owner = ?  WHERE Task_id = ?`, ["done", task_owner, task_id])
+    if(promoteTaskResult[0].affectedRows>0){
+      //Update task notes
+      let auditNote = `\n[${dateTime}, User: ${username}, State: doing] Task ${task_id} promoted to done by ${task_owner}\n****************************************************************************************************************************************\n`
+      if(new_notes !== null && new_notes !== ""){
+        auditNote = auditNote + "Note: " + new_notes + " \n****************************************************************************************************************************************\n"
+      }
+      const updateTaskNotes = await pool.promise().query(`UPDATE task SET Task_notes = CONCAT(?, Task_notes) WHERE Task_id = ?`, [auditNote, task_id])
+      //S100: Success
+      sendEmail = false;
+          //Send email to project lead
+      if(sendEmail){
+        let transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: process.env.SMTP_PORT,
+          auth: {
+              user : process.env.SMTP_EMAIL,
+              pass : process.env.SMTP_PASSWORD
+          }
+        })
 
+        let message ={
+          from: `${process.env.SMTP_FROM_NAME} <${process.env.SMTP_FROM_EMAIL}>`,
+          to: process.env.SMTP_TO_EMAIL,
+          subject: `Task Done`,
+          text: `${task_id} promoted to Done`
+        };
+    
+      transporter.sendMail(message, function(error, info) {
+        if (error){
+          console.log(error)
+        } else {
+          console.log("Email Sent to Project Lead")
+        }
+      });
+    }
+      console.log("Email Sent to Project Lead")
+      return res.json({code:"S100"})
+    }
   } catch (e) {
     //Check if data exceed character limit
     if(e.errno===1406){
