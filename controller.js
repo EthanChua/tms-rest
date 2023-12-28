@@ -51,7 +51,7 @@ exports.CreateTask= async (req, res, next) => {
     }
 
     //AM600: Check permitted user
-    if(!app.App_permit_Create || !Checkgroup(username, app.App_permit_Create)){
+    if(!app.App_permit_Create || !(await Checkgroup(username, app.App_permit_Create))){
       return res.json({code:"AM600"})
     }
 
@@ -76,6 +76,10 @@ exports.CreateTask= async (req, res, next) => {
     //Check if data exceed character limit
     if(e.errno===1406){
       console.log(e.errno, "Data exceed character limit")
+      return res.json({code:"T700"})
+    }
+    if(e.errono== 1264){
+      console.log(e.errno, "Out of range value for column")
       return res.json({code:"T700"})
     }
     //Check internal Server Error
@@ -127,13 +131,31 @@ exports.GetTaskbyState= async (req, res, next) => {
     if(!checkTask){
       return res.json({code:"D501"})
     }
-    
+
     //Check for valid task state @TOCHECK: should state have capital
-    if(task_state !== "open" && task_state !== "todo" && task_state !== "doing" && task_state !== "done" && task_state !== "closed"){
-      return res.json({code:"D502"}) //check if task state correct  
-    }
-    
-    //AM600: Check permitted user
+    // if(task_state !== "open" && task_state !== "todo" && task_state !== "doing" && task_state !== "done" && task_state !== "closed"){
+    //   return res.json({code:"D502"}) //check if task state correct  
+    // }
+    let taskState
+    switch (task_state) {
+      case "open":
+        taskState = "Open"
+        break;
+      case "todo":
+        taskState = "Todo"
+        break;
+      case "doing":
+        taskState = "Doing"
+        break;
+      case "done":
+        taskState = "Done"
+        break;
+      case "closed":
+        taskState = "Close"
+        break;
+      default:
+        return res.json({code:"D502"})
+        }
 
     //Get task data
     const result = await pool.promise().query(`SELECT * FROM task WHERE Task_state = ? AND Task_app_acronym = ?`, [task_state, task_app_acronym])
@@ -201,19 +223,19 @@ exports.PromoteTask2Done= async (req, res, next) => {
     }
 
     //Check task state if in doing
-    if(task.Task_state !== "doing"){
+    if(task.Task_state !== "doing" && task.Task_state !== "Doing"){
       return res.json({code:"D502"})
     } 
 
     //Check permitted user
-    if(!app.App_permit_Doing || !Checkgroup(username, app.App_permit_Doing)){
+    if(!app.App_permit_Doing || !(await Checkgroup(username, app.App_permit_Doing))){
       return res.json({code:"AM600"})
     }
 
     let task_owner= username, currentDate = new Date() 
     let dateTime= `Date: ${currentDate.getDate()}-${(currentDate.getMonth() + 1)}-${currentDate.getFullYear()} Time:${currentDate.getHours()}:${currentDate.getMinutes()}`
     //Promote task to done
-    const promoteTaskResult = await pool.promise().query(`UPDATE task SET Task_state = ?, task_owner = ?  WHERE Task_id = ?`, ["done", task_owner, task_id])
+    const promoteTaskResult = await pool.promise().query(`UPDATE task SET Task_state = ?, task_owner = ?  WHERE Task_id = ?`, ["Done", task_owner, task_id])
     if(promoteTaskResult[0].affectedRows>0){
       //Update task notes
       let auditNote = `\n[${dateTime}, User: ${username}, State: doing] Task ${task_id} promoted to done by ${task_owner}\n****************************************************************************************************************************************\n`
