@@ -58,7 +58,7 @@ exports.CreateTask= async (req, res, next) => {
     let task_creator = username, task_owner= username, task_state = "Open", task_plan= null, task_app_acronym = app.App_Acronym, currentDate = new Date() 
     let dateTime= `Date: ${currentDate.getDate()}-${(currentDate.getMonth() + 1)}-${currentDate.getFullYear()} Time:${currentDate.getHours()}:${currentDate.getMinutes()}`, createDate= currentDate.getDate() + "-" + (currentDate.getMonth() + 1) + "-" + currentDate.getFullYear()
     const task_id= app.App_Acronym + "_" + app.App_Rnumber
-    let task_notes= `\n[${dateTime}, User: ${username}, State: ${task_state}] Task ${task_id} created by ${task_creator}\n****************************************************************************************************************************************\n`
+    let task_notes= `\n[${dateTime}, User: ${username}, State: ${task_state}] Task ${task_id} created by ${task_creator}\n___________________________________________________________________________________________________________________\n`
 
     //Create task
     const createTaskResult = await pool.promise().query(`INSERT INTO task (Task_name, Task_description, Task_notes, Task_id, Task_plan, Task_app_Acronym, Task_state, Task_creator, Task_owner, Task_createDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [task_name, task_description, task_notes, task_id, task_plan, task_app_acronym, task_state, task_creator, task_owner, createDate])
@@ -235,9 +235,9 @@ exports.PromoteTask2Done= async (req, res, next) => {
     const promoteTaskResult = await pool.promise().query(`UPDATE task SET Task_state = ?, task_owner = ?  WHERE Task_id = ?`, ["Done", task_owner, task_id])
     if(promoteTaskResult[0].affectedRows>0){
       //Update task notes
-      let auditNote = `\n[${dateTime}, User: ${username}, State: doing] Task ${task_id} promoted to done by ${task_owner}\n****************************************************************************************************************************************\n`
+      let auditNote = `\n[${dateTime}, User: ${username}, State: doing] Task ${task_id} promoted to done by ${task_owner}\n__________________________________________________________________________________________________________________________\n`
       if(new_notes !== null && new_notes !== ""){
-        auditNote = auditNote + "Note: " + new_notes + " \n****************************************************************************************************************************************\n"
+        auditNote = auditNote + "Note: " + new_notes + " \n_______________________________________________________________________________________________________________________________________\n"
       }
       const updateTaskNotes = await pool.promise().query(`UPDATE task SET Task_notes = CONCAT(?, Task_notes) WHERE Task_id = ?`, [auditNote, task_id])
       //S100: Success

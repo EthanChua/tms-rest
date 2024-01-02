@@ -15,19 +15,21 @@ router.route("/CreateTask").post(CreateTask)
 router.route("/GetTaskbyState").post(GetTaskbyState)
 router.route("/PromoteTask2Done").post(PromoteTask2Done)
 
+// AS200: Check if endpoint exist 
+app.all("*", (req, res) => {
+  return res.json({ code: "AS200"})
+});
 //AS201: Check if endpoint have special character
 router.use((req, res, next) => {
-  const regex = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+/
+  const regex = /[!@#*$%^&()_+\-=\[\]{};':"\\|,.<>\/?]+/
+  console.log(req.url.slice(1))
   if(regex.test(req.url.slice(1))){
   return res.json({ code: "AS201"})
   }
   next()
 });
 
-// AS200: Check if endpoint exist and special character
-app.all("*", (req, res) => {
-  return res.json({ code: "AS200"})
-});
+
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => 
